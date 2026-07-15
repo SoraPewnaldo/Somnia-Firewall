@@ -27,15 +27,25 @@ const FEED_LINES = [
   "REALITY PATCH 4.2.19 APPLIED :: LEAK PERSISTS",
 ];
 
-function makeNodes(): NodeState[] {
+function mulberry32(seed: number) {
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makeNodes(seed = 42): NodeState[] {
+  const rand = mulberry32(seed);
   return Array.from({ length: 16 }, (_, i) => {
     const id = i + 1;
     const near4 = [3, 4, 8, 11, 15].includes(id);   // near sector 4 = hotter
     return {
       id,
       label: `NODE_${String(id).padStart(2, "0")}`,
-      temp: near4 ? 68 + Math.random() * 20 : 30 + Math.random() * 25,
-      load: near4 ? 70 + Math.random() * 20 : 20 + Math.random() * 40,
+      temp: near4 ? 68 + rand() * 20 : 30 + rand() * 25,
+      load: near4 ? 70 + rand() * 20 : 20 + rand() * 40,
       status: id === 7 || id === 12 ? "offline" : near4 ? "critical" : "ok",
       coolant: 25,
     };
@@ -164,19 +174,19 @@ export function Terminal() {
   }
 
   return (
-    <section id="terminal" className="scanlines border-b border-border bg-background">
-      <div className="mx-auto max-w-[1400px] px-4 py-20">
-        <div className="flex flex-col gap-4 text-[10px] tracking-[0.3em] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <span>FILE_REF // DASHBOARD_BLUEPRINT // 03</span>
-          <span className="text-cyan text-glow">
+    <section id="terminal" className="border-b border-border bg-background">
+      <div className="mx-auto max-w-[1400px] px-6 py-16 sm:py-24">
+        <div className="flex flex-col gap-2 text-[10px] tracking-[0.25em] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <span>DASHBOARD_BLUEPRINT // 03</span>
+          <span className="text-cyan">
             PHASE_{phase} :: {phase === 1 ? "CONTAINED" : phase === 2 ? "SPREADING" : phase === 3 ? "CASCADE" : "CRITICAL"}
           </span>
         </div>
-        <h2 className="mt-3 font-display text-5xl text-foreground text-glow sm:text-7xl">
+        <h2 className="mt-2 font-display text-4xl text-foreground sm:text-6xl">
           TERMINAL_V4.2
         </h2>
         <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-          Live control surface. Click a node to inspect. Reroute coolant with the sliders — it's a
+          Live control surface. Click a node to inspect. Reroute coolant with the sliders — it&apos;s a
           zero-sum loop. Type <span className="text-primary">PURGE //SEC-4</span> when stability holds.
         </p>
 
@@ -198,7 +208,7 @@ export function Terminal() {
                   const tone =
                     n.status === "offline"  ? "border-alert text-alert" :
                     n.status === "shutdown" ? "border-border text-muted-foreground opacity-60" :
-                    n.status === "critical" ? "border-alert text-alert pulse-alert" :
+                    n.status === "critical" ? "border-alert text-alert" :
                     n.status === "warn"     ? "border-amber text-amber" :
                                               "border-cyan/60 text-cyan";
                   return (
@@ -211,7 +221,7 @@ export function Terminal() {
                       <div className="mt-1 font-display text-2xl leading-none">
                         {Math.round(n.temp)}°
                       </div>
-                      <div className="mt-1 h-1 w-full bg-black/60">
+                      <div className="mt-1 h-1 w-full bg-muted">
                         <div
                           className="h-full"
                           style={{
@@ -231,20 +241,20 @@ export function Terminal() {
               {selected !== null && (() => {
                 const n = nodes.find((x) => x.id === selected)!;
                 return (
-                  <div className="mt-4 border border-border/70 bg-black/40 p-4">
-                    <div className="flex items-center justify-between text-[10px] tracking-[0.3em]">
-                      <span className="text-primary text-glow">INSPECT :: {n.label}</span>
+                  <div className="mt-4 border border-border/70 bg-surface/50 p-4">
+                    <div className="flex items-center justify-between text-[10px] tracking-[0.25em]">
+                      <span className="text-primary">INSPECT :: {n.label}</span>
                       <span className="text-muted-foreground">STATUS: {n.status.toUpperCase()}</span>
                     </div>
                     <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
-                      <div><div className="text-muted-foreground">CPU_LOAD</div><div className="text-cyan text-glow-soft">{Math.round(n.load)}%</div></div>
-                      <div><div className="text-muted-foreground">TEMP</div><div className="text-cyan text-glow-soft">{Math.round(n.temp)}°C</div></div>
-                      <div><div className="text-muted-foreground">COOLANT</div><div className="text-cyan text-glow-soft">{Math.round(n.coolant)}%</div></div>
+                      <div><div className="text-muted-foreground">CPU_LOAD</div><div className="text-cyan">{Math.round(n.load)}%</div></div>
+                      <div><div className="text-muted-foreground">TEMP</div><div className="text-cyan">{Math.round(n.temp)}°C</div></div>
+                      <div><div className="text-muted-foreground">COOLANT</div><div className="text-cyan">{Math.round(n.coolant)}%</div></div>
                     </div>
                     {(n.status === "offline") && (
                       <button
                         onClick={() => shutdown(n.id)}
-                        className="mt-4 border border-alert bg-alert/10 px-3 py-2 text-[11px] tracking-[0.25em] text-alert text-glow hover:bg-alert hover:text-primary-foreground"
+                        className="mt-4 border border-alert bg-alert/10 px-3 py-2 text-[11px] tracking-[0.25em] text-alert hover:bg-alert hover:text-primary-foreground"
                       >
                         FORCE_SHUTDOWN
                       </button>
@@ -279,7 +289,7 @@ export function Terminal() {
             <Panel title="LEAK_DATA_FEED" sub="unfiltered // do not act on individual entries">
               <div
                 ref={feedRef}
-                className="h-64 overflow-y-auto border border-border/60 bg-black/40 p-3 text-[11px] leading-6 text-cyan text-glow-soft"
+                className="h-64 overflow-y-auto border border-border/60 bg-surface/50 p-3 text-[11px] leading-6 text-cyan"
               >
                 {feed.map((l, i) => (
                   <div key={i}>
@@ -295,12 +305,12 @@ export function Terminal() {
             </Panel>
 
             <Panel title="DAMPENER_EXEC" sub="no buttons // type the command">
-              <div className="h-56 overflow-y-auto border border-border/60 bg-black/60 p-3 font-mono text-[11px] leading-6">
+              <div className="h-56 overflow-y-auto border border-border/60 bg-surface/50 p-3 font-mono text-[11px] leading-6">
                 {log.map((l, i) => (
                   <div
                     key={i}
                     className={
-                      l.kind === "ok" ? "text-ok text-glow-soft" :
+                      l.kind === "ok" ? "text-ok" :
                       l.kind === "err" ? "text-alert" :
                       "text-cyan/90"
                     }
@@ -309,16 +319,16 @@ export function Terminal() {
                   </div>
                 ))}
                 {purged && (
-                  <div className="mt-2 text-ok text-glow">
+                  <div className="mt-2 text-ok">
                     ▓ SECTOR 4 CLEAR — SHIFT ADVANCES ▓
                   </div>
                 )}
               </div>
               <form
                 onSubmit={(e) => { e.preventDefault(); runCommand(cmd); }}
-                className="mt-2 flex items-center gap-2 border border-primary/60 bg-black/60 px-3 py-2"
+                className="mt-2 flex items-center gap-2 border border-primary/60 bg-surface/50 px-3 py-2"
               >
-                <span className="text-primary text-glow">$&gt;</span>
+                <span className="text-primary">$&gt;</span>
                 <input
                   value={cmd}
                   onChange={(e) => setCmd(e.target.value)}
@@ -348,17 +358,17 @@ export function Terminal() {
         </div>
 
         {/* Escalation bar */}
-        <div className="mt-6 border border-border p-4">
-          <div className="flex items-center justify-between text-[10px] tracking-[0.3em] text-muted-foreground">
-            <span>EVOLUTION_TRACK :: LEAK_PRESSURE_OVER_TIME</span>
-            <span className="text-primary text-glow">PHASE {phase} / 4</span>
+        <div className="mt-6 border border-border p-4 bg-surface/50">
+          <div className="flex items-center justify-between text-[10px] tracking-[0.25em] text-muted-foreground">
+            <span>LEAK_PRESSURE_OVER_TIME</span>
+            <span className="text-primary">PHASE {phase} / 4</span>
           </div>
           <div className="mt-3 grid grid-cols-4 gap-1">
             {[1,2,3,4].map((p) => (
-              <div key={p} className={`h-2 ${p <= phase ? (p === 4 ? "bg-alert pulse-alert" : "bg-primary") : "bg-muted"}`} />
+              <div key={p} className={`h-1.5 ${p <= phase ? (p === 4 ? "bg-alert" : "bg-primary") : "bg-muted"}`} />
             ))}
           </div>
-          <div className="mt-3 grid grid-cols-4 gap-1 text-[10px] tracking-[0.25em]">
+          <div className="mt-3 grid grid-cols-4 gap-1 text-[10px] tracking-[0.2em]">
             {["CONTAINED","SPREADING","CASCADE","CRITICAL"].map((t, i) => (
               <div key={t} className={i + 1 <= phase ? "text-cyan" : "text-muted-foreground"}>{t}</div>
             ))}
@@ -370,7 +380,7 @@ export function Terminal() {
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-6 border border-ok bg-ok/10 p-4 text-ok text-glow-soft"
+              className="mt-6 border border-ok bg-ok/10 p-4 text-ok"
             >
               INCIDENT_404 :: RESOLVED // reality integrity restored to 99.6% // clock stopped
             </motion.div>
@@ -383,10 +393,10 @@ export function Terminal() {
 
 function Panel({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
   return (
-    <div className="bevel-frame corner-ticks relative p-4">
+    <div className="border border-border bg-surface/50 p-4">
       <div className="mb-3 flex items-baseline justify-between border-b border-border/60 pb-2">
-        <span className="text-primary text-glow text-[11px] tracking-[0.3em]">{title}</span>
-        {sub && <span className="text-[10px] tracking-[0.25em] text-muted-foreground">{sub}</span>}
+        <span className="text-primary text-[11px] tracking-[0.25em]">{title}</span>
+        {sub && <span className="text-[10px] tracking-[0.2em] text-muted-foreground">{sub}</span>}
       </div>
       {children}
     </div>
@@ -395,14 +405,14 @@ function Panel({ title, sub, children }: { title: string; sub?: string; children
 
 function Stat({ label, value, tone }: { label: string; value: string; tone: "cyan" | "amber" | "alert" | "ok" }) {
   const cls =
-    tone === "alert" ? "text-alert text-glow" :
-    tone === "amber" ? "text-amber text-glow-soft" :
-    tone === "ok"    ? "text-ok text-glow-soft" :
-                       "text-cyan text-glow-soft";
+    tone === "alert" ? "text-alert" :
+    tone === "amber" ? "text-amber" :
+    tone === "ok"    ? "text-ok" :
+                       "text-cyan";
   return (
-    <div className="bevel-frame p-3">
-      <div className="text-[10px] tracking-[0.3em] text-muted-foreground">{label}</div>
-      <div className={`mt-1 font-display text-3xl tabular-nums ${cls}`}>{value}</div>
+    <div className="border border-border bg-surface/50 p-3">
+      <div className="text-[10px] tracking-[0.25em] text-muted-foreground">{label}</div>
+      <div className={`mt-1 font-display text-2xl tabular-nums ${cls}`}>{value}</div>
     </div>
   );
 }
